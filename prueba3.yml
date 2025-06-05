@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Plantilla para activar métricas en stage existente de API Gateway
+
+Parameters:
+  RestApiId:
+    Type: String
+    Description: ID del API Gateway existente
+    Default: bxjs02rgy3
+  StageName:
+    Type: String
+    Description: Nombre del stage existente a actualizar
+    Default: dev
+
+Resources:
+  # Deployment necesario para actualizar el stage
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref RestApiId
+      Description: Deployment para actualizar métricas
+
+  # Actualización del stage existente
+  StageUpdate:
+    Type: AWS::ApiGateway::Stage
+    DependsOn: ApiDeployment
+    Properties:
+      StageName: !Ref StageName
+      RestApiId: !Ref RestApiId
+      DeploymentId: !Ref ApiDeployment
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          MetricsEnabled: true
+          LoggingLevel: OFF
+          DataTraceEnabled: false
+
+Outputs:
+  MetricsStatus:
+    Description: Estado de las métricas
+    Value: !Sub "Métricas activadas en stage ${StageName}"

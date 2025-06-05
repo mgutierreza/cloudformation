@@ -1,0 +1,141 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Plantilla para activar métricas y logs en API Gateway existente
+
+Parameters:
+  ApiGatewayName:
+    Type: String
+    Description: Nombre del API Gateway existente (ej. dev-toyota-dms-spare-parts-purchase)
+    Default: dev-toyota-dms-spare-parts-purchase
+
+Resources:
+  # Rol para CloudWatch Logs
+  ApiGatewayLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - apigateway.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: ApiGatewayLogsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                Resource: "*"
+
+  # Grupo de logs para API Gateway
+  ApiGatewayLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/apigateway/${ApiGatewayName}"
+      RetentionInDays: 7
+
+  # Obtenemos el ID del API Gateway existente usando un custom resource
+  LookupApiGateway:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt LookupApiGatewayLambda.Arn
+      ApiName: !Ref ApiGatewayName
+
+  # Lambda function para buscar el API Gateway
+  LookupApiGatewayLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          const aws = require('aws-sdk');
+          const response = require('cfn-response');
+          exports.handler = (event, context) => {
+            const apigateway = new aws.APIGateway();
+            if (event.RequestType === 'Delete') {
+              return response.send(event, context, response.SUCCESS);
+            }
+            apigateway.getRestApis({limit: 500}).promise()
+              .then(data => {
+                const api = data.items.find(a => a.name === event.ResourceProperties.ApiName);
+                if (!api) throw new Error('API Gateway no encontrado');
+                return response.send(event, context, response.SUCCESS, {ApiId: api.id});
+              })
+              .catch(err => response.send(event, context, response.FAILED, {error: err.message}));
+          };
+      Runtime: nodejs18.x
+      Timeout: 30
+
+  # Rol para la Lambda
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - apigateway:GET
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  # Deployment para actualizar el stage
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: LookupApiGateway
+    Properties:
+      RestApiId: !GetAtt LookupApiGateway.ApiId
+      Description: Deployment para activar métricas y logs
+
+  # Actualización del stage dev con métricas y logs
+  DevStage:
+    Type: AWS::ApiGateway::Stage
+    DependsOn: ApiDeployment
+    Properties:
+      StageName: dev
+      RestApiId: !GetAtt LookupApiGateway.ApiId
+      DeploymentId: !Ref ApiDeployment
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          MetricsEnabled: true    # Activa métricas
+          LoggingLevel: ERROR     # Nivel de logging (ERROR)
+          DataTraceEnabled: true  # Activa detailed metrics
+      AccessLogSetting:
+        DestinationArn: !GetAtt ApiGatewayLogs.Arn
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","user":"$context.identity.user","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
+
+Outputs:
+  ApiId:
+    Description: ID del API Gateway
+    Value: !GetAtt LookupApiGateway.ApiId
+  ApiLogGroup:
+    Description: Grupo de logs de CloudWatch para el API Gateway
+    Value: !Ref ApiGatewayLogs
+  StageUrl:
+    Description: URL del stage dev
+    Value: !Sub "https://${LookupApiGateway.ApiId}.execute-api.${AWS::Region}.amazonaws.com/dev"

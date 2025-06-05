@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Plantilla para activar solo metricas en API Gateway existente
+
+Parameters:
+  RestApiId:
+    Type: String
+    Description: ID del API Gateway existente
+    Default: bxjs02rgy3
+  AWSRegion:
+    Type: String
+    Description: Región AWS donde está el API Gateway
+    Default: us-west-2
+  StageName:
+    Type: String
+    Description: Nombre del stage existente a actualizar
+    Default: dev
+
+Resources:
+  # Deployment para actualizar el stage
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref RestApiId
+      Description: Deployment para activar metricas
+
+  # Actualización del stage dev (solo métricas)
+  DevStage:
+    Type: AWS::ApiGateway::Stage
+    DependsOn: ApiDeployment
+    Properties:
+      StageName: !Ref StageName
+      RestApiId: !Ref RestApiId
+      DeploymentId: !Ref ApiDeployment
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          MetricsEnabled: true    # Métricas activadas
+          LoggingLevel: OFF      # Logs desactivados
+          DataTraceEnabled: false # Data trace desactivado
+
+Outputs:
+  ApiMetricsStatus:
+    Description: Estado de las metricas del API
+    Value: !Sub "Metricas activadas para API ${RestApiId}"
+  StageEndpoint:
+    Description: URL del endpoint
+    Value: !Sub "https://${RestApiId}.execute-api.${AWSRegion}.amazonaws.com/${DevStage}"

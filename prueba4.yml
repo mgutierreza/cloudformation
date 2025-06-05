@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template to work with an existing API Gateway REST API.
+
+Parameters:
+  MyExistingApiGatewayRestApiId: # Parámetro para el ID de tu API Gateway REST
+    Type: String
+    Description: "The ID of the existing API Gateway REST API (e.g., abcde12345)."
+    Default: "bxjs02rgy3"
+
+  MyExistingDeploymentId: # Parámetro para el ID del despliegue
+    Type: String
+    Description: "The Deployment ID for the stage of the existing API Gateway."
+
+  StageNameForMyApi:
+    Type: String
+    Description: "The name for the stage (e.g., dev, prod)."
+    Default: "dev"
+
+Resources:
+  MyApiStage:
+    Type: 'AWS::ApiGateway::Stage'
+    Properties:
+      RestApiId: !Ref MyExistingApiGatewayRestApiId # <-- Aquí se referencia el ID
+      StageName: !Ref StageNameForMyApi
+      DeploymentId: !Ref MyExistingDeploymentId
+      Description: "Stage configured for the existing API Gateway."
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          MetricsEnabled: true
