@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Dashboard de CloudWatch para API Gateway APICitas (Stage: dev) en región us-west-2'
+
+Resources:
+  ApiGatewayDashboard:
+    Type: 'AWS::CloudWatch::Dashboard'
+    Properties:
+      DashboardName: 'Dashboard-APICitas'
+      DashboardBody: |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/ApiGateway", "Latency", "ApiName", "APICitas", "Stage", "dev", { "stat": "Average", "label": "Latencia (Promedio)" } ],
+                  [ "AWS/ApiGateway", "Latency", "ApiName", "APICitas", "Stage", "dev", { "stat": "p90", "label": "Latencia (Caso 1 entre 10)" } ],
+                  [ "AWS/ApiGateway", "Latency", "ApiName", "APICitas", "Stage", "dev", { "stat": "p99", "label": "Latencia (Caso 1 entre 100)" } ]
+                ],
+                "period": 300,
+                "region": "us-west-2",
+                "title": "API Gateway - Latency (Stage: dev) - us-west-2",
+                "view": "timeSeries",
+                "stacked": false,
+                "yAxis": {
+                  "left": {
+                    "label": "Milliseconds",
+                    "showUnits": false
+                  }
+                }
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/ApiGateway", "Count", "ApiName", "APICitas", "Stage", "dev", { "stat": "Sum", "label": "Request Count" } ]
+                ],
+                "period": 300,
+                "region": "us-west-2",
+                "title": "API Gateway - Request Count (Stage: dev) - us-west-2",
+                "view": "timeSeries",
+                "stacked": false
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/ApiGateway", "IntegrationLatency", "ApiName", "APICitas", "Stage", "dev", { "stat": "Average", "label": "Latencia de Integracion (Promedio)" } ],
+                  [ "AWS/ApiGateway", "IntegrationLatency", "ApiName", "APICitas", "Stage", "dev", { "stat": "p90", "label": "Latencia de Integracion (Caso 1 entre 10)" } ],
+                  [ "AWS/ApiGateway", "IntegrationLatency", "ApiName", "APICitas", "Stage", "dev", { "stat": "p99", "label": "Latencia de Integracion (Caso 1 entre 100)" } ]
+                ],
+                "period": 300,
+                "region": "us-west-2",
+                "title": "API Gateway - Integration Latency (Stage: dev) - us-west-2",
+                "view": "timeSeries",
+                "stacked": false,
+                "yAxis": {
+                  "left": {
+                    "label": "Milliseconds",
+                    "showUnits": false
+                  }
+                }
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/ApiGateway", "4XXError", "ApiName", "APICitas", "Stage", "dev", { "stat": "Sum", "label": "4XX Errores" } ],
+                  [ "AWS/ApiGateway", "5XXError", "ApiName", "APICitas", "Stage", "dev", { "stat": "Sum", "label": "5XX Errores" } ]
+                ],
+                "period": 300,
+                "region": "us-west-2",
+                "title": "API Gateway - Errors (Stage: dev) - us-west-2",
+                "view": "timeSeries",
+                "stacked": false
+              }
+            }
+          ]
+        }
+
+Outputs:
+  DashboardName:
+    Description: "Nombre del Dashboard de CloudWatch creado"
+    Value: !Ref ApiGatewayDashboard
